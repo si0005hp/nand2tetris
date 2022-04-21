@@ -1,0 +1,17 @@
+CHIP ALUInputPreprocess {
+    IN  
+        in[16],  // 16-bit inputs        
+        z,       // zero the input?
+        n;       // negate the input?
+
+    OUT 
+        out[16]; // 16-bit output
+
+    PARTS:
+    /* z operation */
+    Mux16(a=in, b=false, sel=z, out=zi);
+
+    /* n operation */
+    Not16(in=zi, out=ni);
+    Mux16(a=zi, b=ni, sel=n, out=out);
+}

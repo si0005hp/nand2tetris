@@ -16,5 +16,29 @@ CHIP PC {
     OUT out[16];
 
     PARTS:
-    // Put your code here:
+    Inc16(in=loopback, out=incval);
+
+    Mux16(a=loopback, b=incval, sel=inc, out=w1);    
+    Mux16(a=w1, b=in, sel=load, out=w2);
+    Mux16(a=w2, b=false, sel=reset, out=w3);
+
+    Register(in=w3, load=true, out=out, out=loopback);
+
+    // ----------------------------------------------------------------
+    /**
+     * reset: 01
+     * load:  10
+     * inc:   11
+     * else:  00
+     */
+    /**
+    Mux2(a=false, b[0]=true, sel=reset, out=w1);
+    Mux2(a=w1, b[1]=true, sel=load, out=w2);
+    Mux2(a=w2, b=true, sel=inc, out=w3);
+
+    Inc16(in=in, out=incval);
+    Mux4Way16(a=loopback, b=false, c=in, d=incval, sel=w3, out=ri);
+
+    Register(in=ri, load=true, out=out, out=loopback);
+    */
 }

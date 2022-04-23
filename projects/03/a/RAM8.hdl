@@ -15,16 +15,16 @@ CHIP RAM8 {
     OUT out[16];
 
     PARTS:
-    DMux8Way(in=true, sel=address, a=r0flg, b=r1flg, c=r2flg, d=r3flg, e=r4flg, f=r5flg, g=r6flg, h=r7flg);
+    DMux8Way(in=load, sel=address, a=r0i, b=r1i, c=r2i, d=r3i, e=r4i, f=r5i, g=r6i, h=r7i);
 
-    Mux16(a=r0o, b=in, sel=r0flg, out=r0mo); Register(in=r0mo, load=load, out=r0o);
-    Mux16(a=r1o, b=in, sel=r1flg, out=r1mo); Register(in=r1mo, load=load, out=r1o);
-    Mux16(a=r2o, b=in, sel=r2flg, out=r2mo); Register(in=r2mo, load=load, out=r2o);
-    Mux16(a=r3o, b=in, sel=r3flg, out=r3mo); Register(in=r3mo, load=load, out=r3o);
-    Mux16(a=r4o, b=in, sel=r4flg, out=r4mo); Register(in=r4mo, load=load, out=r4o);
-    Mux16(a=r5o, b=in, sel=r5flg, out=r5mo); Register(in=r5mo, load=load, out=r5o);
-    Mux16(a=r6o, b=in, sel=r6flg, out=r6mo); Register(in=r6mo, load=load, out=r6o);
-    Mux16(a=r7o, b=in, sel=r7flg, out=r7mo); Register(in=r7mo, load=load, out=r7o);
+    Register(in=in, load=r0i, out=r0o);
+    Register(in=in, load=r1i, out=r1o);
+    Register(in=in, load=r2i, out=r2o);
+    Register(in=in, load=r3i, out=r3o);
+    Register(in=in, load=r4i, out=r4o);
+    Register(in=in, load=r5i, out=r5o);
+    Register(in=in, load=r6i, out=r6o);
+    Register(in=in, load=r7i, out=r7o);
 
     Mux8Way16(sel=address, a=r0o, b=r1o, c=r2o, d=r3o, e=r4o, f=r5o, g=r6o, h=r7o, out=out);
 }

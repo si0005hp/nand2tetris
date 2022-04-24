@@ -2,3 +2,4 @@
 *.out
 
 tmp/
+projects/04/**/*.hack

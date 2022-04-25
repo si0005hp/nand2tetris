@@ -25,6 +25,11 @@
  * than to the address resulting from executing the current instruction. 
  */
 
+/**
+ * [instruction format]
+ * 15|1413|12|11109876|543|210
+ * i |x x |a |c c cccc|ddd|jjj
+ */
 CHIP CPU {
 
     IN  inM[16],         // M value input  (M = contents of RAM[A])
@@ -39,5 +44,49 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+    /* aliases */
+    Not(in=instruction[15], out=is-a-op); // It's A-Operation ? 1 : 0
+    And(a=instruction[15], b=true, out=is-c-op); // It's C-Operation ? 1 : 0
+
+    Mux16(a=instruction, b=aluout, sel=is-c-op, out=rai); // sel: A-Operation or C-Operation
+
+    And(a=is-c-op, b=instruction[5], out=c-d1);
+    Or(a=is-a-op, b=c-d1, out=ra-load); // load: A-Operation or d1 bit
+    ARegister(in=rai, load=ra-load, out=ra, out[0..14]=addressM);
+
+    And(a=is-c-op, b=instruction[12], out=c-a);
+    Mux16(a=ra, b=inM, sel=c-a, out=ra-rm); // sel: a bit
+
+    And(a=is-c-op, b=instruction[4], out=c-d2);
+    DRegister(in=aluout, load=c-d2, out=rd); // load: d2 bit
+
+    ALU(x=rd, y=ra-rm,
+        zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6],
+        out=aluout, zr=zr, ng=ng);
+
+    /* writeM */
+    And(a=is-c-op, b=instruction[3], out=c-d3);
+    Mux(a=false, b=true, sel=c-d3, out=writeM); // sel: d3 bit
+    Mux16(a=false, b=aluout, sel=c-d3, out=outM);
+
+    /* PC */
+    Not(in=zr, out=nzr); Not(in=ng, out=nng);
+    And(a=nzr, b=nng, out=ps); Not(in=ps, out=nps);
+
+    DMux8Way(in=is-c-op, sel=instruction[0..2], a=jnull, b=jgt, c=jeq, d=jge, e=jlt, f=jne, g=jle, h=jmp); // sel: j bits
+
+    And(a=jgt, b=ps, out=jgt-on);
+    And(a=jeq, b=zr, out=jeq-on);
+    And(a=jge, b=nng, out=jge-on);
+    And(a=jlt, b=ng, out=jlt-on);
+    And(a=jne, b=nzr, out=jne-on);
+    And(a=jle, b=nps, out=jle-on);
+
+    Or8Way(in[0]=false, // jnull
+           in[1]=jgt-on, in[2]=jeq-on, in[3]=jge-on, in[4]=jlt-on, in[5]=jne-on, in[6]=jle-on, in[7]=jmp,
+           out=yjmp);
+
+    Not(in=yjmp, out=njmp);
+
+    PC(in=ra, load=yjmp, inc=njmp, reset=reset, out[0..14]=pc);
 }

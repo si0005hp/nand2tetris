@@ -5,3 +5,8 @@ tmp/
 projects/04/**/*.hack
 projects/06/**/*.hack
 projects/07/**/*.hack
+projects/07/**/SimpleAdd.asm
+projects/07/**/StackTest.asm
+projects/07/**/BasicTest.asm
+projects/07/**/PointerTest.asm
+projects/07/**/StaticTest.asm

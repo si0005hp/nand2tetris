@@ -10,3 +10,9 @@ projects/07/**/StackTest.asm
 projects/07/**/BasicTest.asm
 projects/07/**/PointerTest.asm
 projects/07/**/StaticTest.asm
+projects/08/**/FibonacciSeries.asm
+projects/08/**/BasicLoop.asm
+projects/08/**/SimpleFunction.asm
+projects/08/**/FibonacciElement.asm
+projects/08/**/StaticsTest.asm
+projects/08/**/NestedCall.asm

@@ -24,6 +24,9 @@ output_file_path, input_file_paths =
 File.open(output_file_path, 'w') do |out_file|
   writer = CodeWriter.new(out_file)
 
+  # Write bootstrap code if 'Sys.vm' exists
+  writer.write_bootstrap if input_file_paths.any? { |path| path.match?(/.*Sys.vm$/) }
+
   input_file_paths.each do |path|
     File.open(path, 'r') do |in_file|
       parser = Parser.new(in_file)
@@ -32,7 +35,7 @@ File.open(output_file_path, 'w') do |out_file|
       while parser.has_more_commands?
         next unless parser.advance
 
-        writer.write(parser.command, parser.arg1, parser.arg2)
+        writer.write(parser.line, parser.command, parser.arg1, parser.arg2)
       end
     end
   end

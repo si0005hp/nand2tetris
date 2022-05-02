@@ -1,22 +1,54 @@
 # frozen_string_literal: true
 
 class CodeWriter # rubocop:disable Metrics/ClassLength
-  attr_accessor :file_name
-
   def initialize(output)
     @output = output
-    @compare_label_index = 0
+    @system_label_id = 0
   end
 
-  def write(command, arg1, arg2)
-    case command
-    when 'push'
-      write_codes(push_codes(arg1, arg2), "#{command} #{arg1} #{arg2}")
-    when 'pop'
-      write_codes(pop_codes(arg1, arg2), "#{command} #{arg1} #{arg2}")
-    else
-      write_codes(arithmetic_codes(command), command)
+  def write(line, command, arg1, arg2) # rubocop:disable Metrics/MethodLength, Metrics/CyclomaticComplexity, Metrics/AbcSize
+    with_comment(line) do
+      case command
+      when 'push'
+        write_codes(push_codes(arg1, arg2))
+      when 'pop'
+        write_codes(pop_codes(arg1, arg2))
+      when 'label'
+        write_codes(label_codes(arg1))
+      when 'goto'
+        write_codes(goto_codes(arg1))
+      when 'if-goto'
+        write_codes(if_goto_codes(arg1))
+      when 'function'
+        write_codes(function_codes(arg1, arg2))
+      when 'call'
+        write_codes(call_codes(arg1, arg2))
+      when 'return'
+        write_codes(return_codes)
+      else
+        write_codes(arithmetic_codes(command))
+      end
     end
+  end
+
+  def file_name=(file_name)
+    @file_name = file_name
+    write_header_comment(@file_name)
+  end
+
+  def write_bootstrap
+    write_header_comment('Bootstrap')
+    # SP=256
+    write_codes(
+      %w[
+        @256
+        D=A
+        @SP
+        M=D
+      ]
+    )
+    # call Sys.init
+    write('call Sys.init 0', 'call', 'Sys.init', '0')
   end
 
   private
@@ -137,9 +169,9 @@ class CodeWriter # rubocop:disable Metrics/ClassLength
   end
 
   def compare_op(jmp_code) # rubocop:disable Metrics/MethodLength
-    @compare_label_index += 1
-    label_true = "CMP_T#{@compare_label_index}"
-    label_false = "CMP_F#{@compare_label_index}"
+    @system_label_id += 1
+    label_true = "CMP_T#{@system_label_id}"
+    label_false = "CMP_F#{@system_label_id}"
 
     [
       pop,
@@ -168,9 +200,152 @@ class CodeWriter # rubocop:disable Metrics/ClassLength
     ].flatten
   end
 
-  def write_codes(codes, comment = nil)
-    @output.write("//<#{comment}\n") if comment
+  def label_codes(label)
+    ["(#{label})"]
+  end
+
+  def goto_codes(label)
+    %W[
+      @#{label}
+      0;JMP
+    ]
+  end
+
+  def if_goto_codes(label)
+    [
+      pop,
+      %W[
+        @#{label}
+        D;JNE
+      ]
+    ].flatten
+  end
+
+  def function_codes(fn_name, arity)
+    # function label
+    codes = ["(#{fn_name})"]
+    # local initializations
+    arity.to_i.times { codes.concat(push_codes('constant', 0)) }
+
+    codes
+  end
+
+  def call_codes(fn_name, arity) # rubocop:disable Metrics/MethodLength
+    @system_label_id += 1
+    return_address_symbol = "#{fn_name}.return.#{@system_label_id}"
+
+    [
+      # push return-address
+      %W[
+        @#{return_address_symbol}
+        D=A
+      ],
+      push,
+      # push LCL
+      # push ARG
+      # push THIS
+      # push THAT
+      %w[LCL ARG THIS THAT].map do |segment|
+        [
+          %W[
+            @#{segment}
+            D=M
+          ],
+          push
+        ].flatten
+      end,
+      # ARG = SP-n-5 (n: arity)
+      %W[
+        @SP
+        A=M
+        #{(arity.to_i + 5).times.map { 'A=A-1' }.join("\n")}
+        D=A
+        @ARG
+        M=D
+      ],
+      # LCL = SP
+      %w[
+        @SP
+        D=M
+        @LCL
+        M=D
+      ],
+      # goto f, (return-address)
+      %W[
+        @#{fn_name}
+        0;JMP
+        (#{return_address_symbol})
+      ]
+    ].flatten
+  end
+
+  def return_codes # rubocop:disable Metrics/MethodLength
+    [
+      # FRAME = LCL
+      %w[
+        @LCL
+        D=M
+        @FRAME
+        M=D
+      ],
+      # RET = *(FRAME-5)
+      store_frame_segment_codes('RET', 5),
+      # *ARG = pop()
+      pop,
+      %w[
+        @ARG
+        A=M
+        M=D
+      ],
+      # SP = ARG + 1
+      %w[
+        @ARG
+        D=M+1
+        @SP
+        M=D
+      ],
+      # THAT = *(FRAME-1)
+      # THIS = *(FRAME-2)
+      # ARG = *(FRAME-3)
+      # LCL = *(FRAME-4)
+      %w[THAT THIS ARG LCL].map.with_index(1) do |segment, i|
+        store_frame_segment_codes(segment, i)
+      end,
+      # goto RET
+      %w[
+        @RET
+        A=M
+        0;JMP
+      ]
+    ].flatten
+  end
+
+  def store_frame_segment_codes(dest_symbol, frame_offset)
+    %W[
+      @FRAME
+      A=M
+      #{frame_offset.times.map { 'A=A-1' }.join("\n")}
+      D=M
+      @#{dest_symbol}
+      M=D
+    ]
+  end
+
+  def write_codes(codes)
     codes.each { |code| @output.write("#{code}\n") }
-    @output.write("//>#{comment}\n") if comment
+  end
+
+  def with_comment(comment)
+    @output.write("//<#{comment}\n")
+    yield
+    @output.write("//>#{comment}\n")
+  end
+
+  def write_header_comment(header)
+    @output.write(<<~FILE_NAME_COMMENT)
+      // ####################
+      // #{header}
+      // ####################
+    FILE_NAME_COMMENT
   end
 end

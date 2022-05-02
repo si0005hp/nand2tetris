@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Parser
-  attr_reader :command, :arg1, :arg2
+  attr_reader :line, :command, :arg1, :arg2
 
   def initialize(file)
     @file = file
@@ -12,17 +12,17 @@ class Parser
   end
 
   def advance
-    line = remove_spaces_and_comment(@file.readline.chomp)
-    return false if line.empty?
+    @line = remove_spaces_and_comment(@file.readline.chomp)
+    return false if @line.empty?
 
-    parse_line(line)
+    parse_line(@line)
     true
   end
 
   private
 
   def parse_line(line)
-    matched = /(\w+)(?: (\w+))?(?: (\w+))?$/.match(line)
+    matched = /([\w\-]+)(?: ([\w.$]+))?(?: (\w+))?$/.match(line)
     raise "[Parser error]: Failed to parse line '#{line}'" unless matched
 
     @command = matched[1]

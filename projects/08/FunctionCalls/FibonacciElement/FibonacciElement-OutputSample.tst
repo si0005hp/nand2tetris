@@ -1,18 +1,19 @@
 // This file is part of www.nand2tetris.org
 // and the book "The Elements of Computing Systems"
 // by Nisan and Schocken, MIT Press.
-// File name: projects/08/FunctionCalls/FibonacciElement/FibonacciElementVME.tst
+// File name: projects/08/FunctionCalls/FibonacciElement/FibonacciElement-OutputSample.tst
 
-load,  // Load all the VM files from the current directory
-output-file FibonacciElement.out,
+// FibonacciElement.asm results from translating both Main.vm and Sys.vm into
+// a single assembly program, stored in the file FibonacciElement-OutputSample.asm.
+
+load FibonacciElement-OutputSample.asm,
+output-file FibonacciElement-OutputSample.out,
 // compare-to FibonacciElement.cmp,
 // output-list RAM[0]%D1.6.1 RAM[261]%D1.6.1;
 output-list RAM[0]%D1.6.1 RAM[256]%D1.6.1 RAM[257]%D1.6.1 RAM[258]%D1.6.1 RAM[259]%D1.6.1 RAM[260]%D1.6.1 RAM[261]%D1.6.1;
 
-set sp 261,
-
-repeat 110 {
-  vmstep;
+repeat 6000 {
+  ticktock;
 }
 
 output;

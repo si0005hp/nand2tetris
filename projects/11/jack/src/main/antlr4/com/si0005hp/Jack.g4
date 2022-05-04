@@ -32,12 +32,21 @@ returnStatement: RETURN expression? ';';
 
 /* Expression */
 expression: term (op term)*;
+// x + (y + z) * 10
 
-term: INT_CONSTANT | STRING_CONSTANT | keywordConstant | varName | varName '[' expression ']' |
-      subroutineCall | '(' expression ')' | unaryOp term;
+term
+    : INT_CONSTANT                  #Int
+    | STRING_CONSTANT               #String
+    | keywordConstant               #Keyword
+    | varName                       #Var
+    | varName '[' expression ']'    #Subscript
+    | subroutineCall                #Call
+    | '(' expression ')'            #Grouping
+    | unaryOp term                  #Unary
+    ;
 
 subroutineCall: subroutineName '(' expressionList ')'
-              | (className | varName) '.' subroutineName  '(' expressionList ')';
+              | (receiver = className | varName) '.' subroutineName  '(' expressionList ')';
 
 expressionList: (expression (',' expression)*)?;
 

@@ -16,3 +16,4 @@ projects/08/**/SimpleFunction.asm
 projects/08/**/FibonacciElement.asm
 projects/08/**/StaticsTest.asm
 projects/08/**/NestedCall.asm
+projects/11/**/*.vm

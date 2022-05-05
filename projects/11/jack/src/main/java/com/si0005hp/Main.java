@@ -5,8 +5,8 @@ import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
+import java.util.stream.Stream;
 
 /**
  * Hello world!
@@ -18,32 +18,49 @@ public class Main {
             System.exit(1);
         }
 
-        var inputFilePath = args[0];
-        JackParser.ProgramContext program = null;
-        try {
-            program = parseFile(inputFilePath);
-        } catch (Exception e) {
-            e.printStackTrace();
+        var file = new File(args[0]);
+        if (!file.exists()) {
+            System.err.printf("[ERROR]: No such file: %s\n", args[0]);
             System.exit(1);
         }
 
-        var writer = new VMWriter(System.out);
-        var parser = createParser(Files.getNameWithoutExtension(inputFilePath), writer);
-
-        parser.visitProgram(program);
+        if (file.isDirectory()) {
+            Stream.of(file.listFiles((_d, name) -> name.endsWith(".jack"))).forEach(Main::compileFile);
+        } else {
+            compileFile(file);
+        }
     }
 
-    private static JackVisitor<Void> createParser(String className, VMWriter writer) {
+    private static void compileFile(File file) {
+        try (var bw = new BufferedWriter(new PrintWriter(new FileOutputStream(outputPath(file))))) {
+            var program = parseFile(file);
+
+            var writer = new VMWriter(bw);
+            var compiler = newCompiler(Files.getNameWithoutExtension(file.getPath()), writer);
+
+            compiler.visitProgram(program);
+        } catch (Exception e) {
+            System.err.printf("[ERROR]: Compiler error: %s\n", file.getPath());
+            e.printStackTrace();
+            System.exit(1);
+        }
+    }
+
+    private static JackVisitor<Void> newCompiler(String className, VMWriter writer) {
         return System.getenv("DEBUG") == null ? new Compiler(className, writer) :
                 new ParserDebugger();
     }
 
-    public static JackParser.ProgramContext parseFile(String filePath) throws IOException {
-        try (var is = new FileInputStream(filePath)) {
-            var parser = new JackParser(new CommonTokenStream(new JackLexer
-                    (CharStreams.fromStream(is))));
+    public static JackParser.ProgramContext parseFile(File file) throws IOException {
+        try (var is = new FileInputStream(file)) {
+            var parser =
+                    new JackParser(new CommonTokenStream(new JackLexer(CharStreams.fromStream(is))));
             parser.setErrorHandler(new BailErrorStrategy());
             return parser.program();
         }
+    }
+
+    private static String outputPath(File inputFile) {
+        return inputFile.getPath().replaceAll(".jack$", ".vm");
     }
 }

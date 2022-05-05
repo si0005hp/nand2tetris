@@ -2,12 +2,12 @@ package com.si0005hp;
 
 import lombok.RequiredArgsConstructor;
 
-import java.io.PrintStream;
+import java.io.Writer;
 
 @RequiredArgsConstructor
 public class VMWriter {
 
-    private final PrintStream out;
+    private final Writer out;
 
     enum Segment {
         CONST("constant"),
@@ -41,27 +41,40 @@ public class VMWriter {
     }
 
     public void writePush(Segment segment, int index) {
-        out.printf("push %s %s\n", segment, index);
+        write("push %s %s", segment, index);
     }
 
     public void writePop(Segment segment, int index) {
-        out.printf("pop %s %s\n", segment, index);
+        write("pop %s %s", segment, index);
     }
 
     public void writeArithmetic(ArithmeticCommand command) {
-        out.println(command);
+        write(command);
     }
 
     public void writeCall(String name, int nArgs) {
-        out.printf("call %s %s\n", name, nArgs);
+        write("call %s %s", name, nArgs);
     }
 
     public void writeFunction(String name, int nLocals) {
-        out.printf("function %s %s\n", name, nLocals);
+        write("function %s %s", name, nLocals);
     }
 
     public void writeReturn() {
-        out.println("return");
+        write("return");
+    }
+
+    private void write(String format, Object... args) {
+        write(String.format(format, args));
+    }
+
+    private void write(Object s) {
+        try {
+            out.write(s.toString());
+            out.write(System.lineSeparator());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

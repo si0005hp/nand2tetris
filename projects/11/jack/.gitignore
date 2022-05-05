@@ -1,5 +1,6 @@
 generated-sources/
 tmp/
+test_result/
 
 ### https://raw.github.com/github/gitignore/96d68766538413194aabd55e3622734cd501e715/Global/JetBrains.gitignore
 

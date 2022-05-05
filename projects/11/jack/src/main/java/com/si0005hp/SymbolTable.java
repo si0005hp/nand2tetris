@@ -41,19 +41,19 @@ public class SymbolTable {
         return tableOf(kind).size();
     }
 
-    public Kind kindOf(String name) {
-        return lookupSymbol(name).orElseThrow().kind;
+    public Optional<Kind> kindOf(String name) {
+        return lookupSymbol(name).map(Symbol::getKind);
     }
 
-    public String typeOf(String name) {
-        return lookupSymbol(name).orElseThrow().type;
+    public Optional<String> typeOf(String name) {
+        return lookupSymbol(name).map(Symbol::getType);
     }
 
-    public int indexOf(String name) {
-        return lookupSymbol(name).orElseThrow().index;
+    public Optional<Integer> indexOf(String name) {
+        return lookupSymbol(name).map(Symbol::getIndex);
     }
 
-    private Optional<Symbol> lookupSymbol(String name) {
+    public Optional<Symbol> lookupSymbol(String name) {
         for (var table : symbols.values()) {
             if (table.containsKey(name)) return Optional.of(table.get(name));
         }

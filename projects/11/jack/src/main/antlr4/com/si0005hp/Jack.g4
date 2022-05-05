@@ -24,8 +24,8 @@ varName: IDENTIFIER;
 /* Statement */
 statements : statement*;
 statement: letStatement | ifStatement | whileStatement | doStatement | returnStatement;
-letStatement: LET varName ('[' expression ']')? '=' expression ';';
-ifStatement: IF '(' expression ')' '{' statements '}' (ELSE '{' statements '}')?;
+letStatement: LET lhs = varName ('[' subscriptArg = expression ']')? '=' rhs = expression ';';
+ifStatement: IF '(' expression ')' '{' thenBlock = statements '}' (ELSE '{' elseBlock = statements '}')?;
 whileStatement: WHILE '(' expression ')' '{' statements '}';
 doStatement: DO subroutineCall ';';
 returnStatement: RETURN expression? ';';
@@ -38,7 +38,7 @@ term
     : INT_CONSTANT                  #Int
     | STRING_CONSTANT               #String
     | keywordConstant               #Keyword
-    | varName                       #Var
+    | varName                       #VarRef
     | varName '[' expression ']'    #Subscript
     | subroutineCall                #Call
     | '(' expression ')'            #Grouping

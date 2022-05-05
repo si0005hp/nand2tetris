@@ -52,6 +52,18 @@ public class VMWriter {
         write(command);
     }
 
+    public void writeLabel(String name) {
+        write("label %s", name);
+    }
+
+    public void writeGoto(String label) {
+        write("goto %s", label);
+    }
+
+    public void writeIfGoto(String label) {
+        write("if-goto %s", label);
+    }
+
     public void writeCall(String name, int nArgs) {
         write("call %s %s", name, nArgs);
     }

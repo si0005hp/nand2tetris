@@ -134,7 +134,7 @@ public class ParserDebugger extends JackBaseVisitor<Void> {
     }
 
     @Override
-    public Void visitVar(JackParser.VarContext ctx) {
+    public Void visitVarRef(JackParser.VarRefContext ctx) {
         System.out.printf("visitVar: %s\n", ctx.getText());
         return visitChildren(ctx);
     }

@@ -39,7 +39,7 @@ term
     | STRING_CONSTANT               #String
     | keywordConstant               #Keyword
     | varName                       #VarRef
-    | varName '[' expression ']'    #Subscript
+    | varName '[' subscriptArg = expression ']'    #Subscript
     | subroutineCall                #Call
     | '(' expression ')'            #Grouping
     | unaryOp term                  #Unary

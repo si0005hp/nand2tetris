@@ -65,7 +65,6 @@ public class Compiler extends JackBaseVisitor<Void> {
         return visitChildren(ctx);
     }
 
-
     public Void visitVarDec(JackParser.VarDecContext ctx) {
         var type = ctx.type().getText();
         ctx.varName().forEach(v -> symbolTable.define(v.getText(), type, SymbolTable.Kind.VAR));
@@ -74,12 +73,24 @@ public class Compiler extends JackBaseVisitor<Void> {
 
     @Override
     public Void visitLetStatement(JackParser.LetStatementContext ctx) {
-        ctx.rhs.accept(this);
-
-        // TODO: Case of subscript
         // TODO: empty error handling
-        var symbol = symbolTable.lookupSymbol(ctx.lhs.getText()).get();
-        writer.writePop(resolveSymbolSegment(symbol), symbol.getIndex());
+        var lhs = symbolTable.lookupSymbol(ctx.lhs.getText()).get();
+        if (ctx.subscriptArg == null) {
+            ctx.rhs.accept(this);
+            writer.writePop(resolveSymbolSegment(lhs), lhs.getIndex());
+        } else {
+            // Resolve the array address (base + index)
+            ctx.subscriptArg.accept(this);
+            writer.writePush(resolveSymbolSegment(lhs), lhs.getIndex());
+            writer.writeArithmetic(VMWriter.ArithmeticCommand.ADD);
+
+            ctx.rhs.accept(this);
+
+            writer.writePop(VMWriter.Segment.TEMP, 0);
+            writer.writePop(VMWriter.Segment.POINTER, 1); // Store resolved address to 'that'
+            writer.writePush(VMWriter.Segment.TEMP, 0);
+            writer.writePop(VMWriter.Segment.THAT, 0);
+        }
         return null;
     }
 
@@ -160,18 +171,18 @@ public class Compiler extends JackBaseVisitor<Void> {
         return null;
     }
 
-    private VMWriter.Segment resolveSymbolSegment(SymbolTable.Symbol symbol) {
-        switch (symbol.getKind()) {
-            case VAR:
-                return VMWriter.Segment.LOCAL;
-            case ARG:
-                return VMWriter.Segment.ARG;
-            case FIELD:
-                return VMWriter.Segment.THIS;
-            default:
-                // TODO: Other segments
-                throw new RuntimeException("Not implemented");
-        }
+    @Override
+    public Void visitSubscript(JackParser.SubscriptContext ctx) {
+        // TODO: empty error handling
+        var receiver = symbolTable.lookupSymbol(ctx.varName().getText()).get();
+
+        ctx.subscriptArg.accept(this);
+        writer.writePush(resolveSymbolSegment(receiver), receiver.getIndex());
+        writer.writeArithmetic(VMWriter.ArithmeticCommand.ADD);
+
+        writer.writePop(VMWriter.Segment.POINTER, 1);
+        writer.writePush(VMWriter.Segment.THAT, 0);
+        return null;
     }
 
     @Override
@@ -220,6 +231,22 @@ public class Compiler extends JackBaseVisitor<Void> {
     @Override
     public Void visitInt(JackParser.IntContext ctx) {
         writer.writePush(VMWriter.Segment.CONST, Integer.parseInt(ctx.getText()));
+        return null;
+    }
+
+    @Override
+    public Void visitString(JackParser.StringContext ctx) {
+        // Trim quotes
+        var str = ctx.getText().substring(1, ctx.getText().length() - 1);
+
+        // Call 'String.new' with its length
+        writer.writePush(VMWriter.Segment.CONST, str.length());
+        writer.writeCall("String.new", 1);
+        // Call 'String.appendChar' with each character codes
+        str.chars().forEach(charCode -> {
+            writer.writePush(VMWriter.Segment.CONST, charCode);
+            writer.writeCall("String.appendChar", 2);
+        });
         return null;
     }
 
@@ -273,5 +300,19 @@ public class Compiler extends JackBaseVisitor<Void> {
                 break;
         }
         return null;
+    }
+
+    private VMWriter.Segment resolveSymbolSegment(SymbolTable.Symbol symbol) {
+        switch (symbol.getKind()) {
+            case VAR:
+                return VMWriter.Segment.LOCAL;
+            case ARG:
+                return VMWriter.Segment.ARG;
+            case FIELD:
+                return VMWriter.Segment.THIS;
+            default:
+                // TODO: Other segments
+                throw new RuntimeException("Not implemented");
+        }
     }
 }

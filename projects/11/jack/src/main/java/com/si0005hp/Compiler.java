@@ -2,6 +2,9 @@ package com.si0005hp;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Compiler corresponds with a class.
+ */
 @RequiredArgsConstructor
 public class Compiler extends JackBaseVisitor<Void> {
 
@@ -16,6 +19,18 @@ public class Compiler extends JackBaseVisitor<Void> {
     private void resetLabelIndex() {
         whileLabelIndex = 0;
         ifLabelIndex = 0;
+    }
+
+    private int numFields = 0;
+
+    @Override
+    public Void visitClassVarDec(JackParser.ClassVarDecContext ctx) {
+        ctx.varName().forEach(varName -> {
+            symbolTable.define(varName.getText(), ctx.type().getText(), ctx.STATIC() != null ?
+                    SymbolTable.Kind.STATIC : SymbolTable.Kind.FIELD);
+            numFields++;
+        });
+        return null;
     }
 
     @Override
@@ -35,7 +50,18 @@ public class Compiler extends JackBaseVisitor<Void> {
                 .stream()
                 .mapToInt(varDec -> varDec.varName().size())
                 .sum();
+
         writer.writeFunction(name, nLocals);
+        if (ctx.METHOD() != null) {
+            // Set receiver (argument 0) to pointer 0 for methods
+            writer.writePush(VMWriter.Segment.ARG, 0);
+            writer.writePop(VMWriter.Segment.POINTER, 0);
+        } else if (ctx.CONSTRUCTOR() != null) {
+            // Call Memory.alloc in case of constructor
+            writer.writePush(VMWriter.Segment.CONST, numFields);
+            writer.writeCall("Memory.alloc", 1);
+            writer.writePop(VMWriter.Segment.POINTER, 0);
+        }
         return visitChildren(ctx);
     }
 
@@ -53,7 +79,7 @@ public class Compiler extends JackBaseVisitor<Void> {
         // TODO: Case of subscript
         // TODO: empty error handling
         var symbol = symbolTable.lookupSymbol(ctx.lhs.getText()).get();
-        writer.writePop(resolveSymbolSegment(symbol.getKind()), symbol.getIndex());
+        writer.writePop(resolveSymbolSegment(symbol), symbol.getIndex());
         return null;
     }
 
@@ -130,16 +156,18 @@ public class Compiler extends JackBaseVisitor<Void> {
     public Void visitVarRef(JackParser.VarRefContext ctx) {
         // TODO: empty error handling
         var symbol = symbolTable.lookupSymbol(ctx.getText()).get();
-        writer.writePush(resolveSymbolSegment(symbol.getKind()), symbol.getIndex());
+        writer.writePush(resolveSymbolSegment(symbol), symbol.getIndex());
         return null;
     }
 
-    private VMWriter.Segment resolveSymbolSegment(SymbolTable.Kind kind) {
-        switch (kind) {
+    private VMWriter.Segment resolveSymbolSegment(SymbolTable.Symbol symbol) {
+        switch (symbol.getKind()) {
             case VAR:
                 return VMWriter.Segment.LOCAL;
             case ARG:
                 return VMWriter.Segment.ARG;
+            case FIELD:
+                return VMWriter.Segment.THIS;
             default:
                 // TODO: Other segments
                 throw new RuntimeException("Not implemented");
@@ -162,13 +190,30 @@ public class Compiler extends JackBaseVisitor<Void> {
 
     @Override
     public Void visitSubroutineCall(JackParser.SubroutineCallContext ctx) {
-        ctx.expressionList().accept(this);
+        var subroutineName = ctx.subroutineName().getText();
+        int nArgs = ctx.expressionList().expression().size();
 
-        var name = ctx.subroutineName().getText();
         if (ctx.receiver != null) {
-            name = String.format("%s.%s", ctx.receiver.getText(), name);
+            var opt = symbolTable.lookupSymbol(ctx.receiver.getText());
+            if (opt.isPresent()) {
+                // Receiver is an instance
+                var symbol = opt.get();
+                writer.writePush(resolveSymbolSegment(symbol), symbol.getIndex());
+                subroutineName = String.format("%s.%s", symbol.getType(), subroutineName);
+                nArgs += 1;
+            } else {
+                // Receiver is a class
+                subroutineName = String.format("%s.%s", ctx.receiver.getText(), subroutineName);
+            }
+        } else {
+            // If no receiver, then its one of other methods of self
+            writer.writePush(VMWriter.Segment.POINTER, 0);
+            subroutineName = String.format("%s.%s", className, subroutineName);
+            nArgs += 1;
         }
-        writer.writeCall(name, ctx.expressionList().expression().size());
+
+        ctx.expressionList().accept(this);
+        writer.writeCall(subroutineName, nArgs);
         return null;
     }
 
@@ -224,8 +269,9 @@ public class Compiler extends JackBaseVisitor<Void> {
                 writer.writePush(VMWriter.Segment.CONST, 0);
                 break;
             case "this":
-                throw new RuntimeException("Not implemented");
+                writer.writePush(VMWriter.Segment.POINTER, 0);
+                break;
         }
-        return super.visitKeywordConstant(ctx);
+        return null;
     }
 }

@@ -41,18 +41,6 @@ public class SymbolTable {
         return tableOf(kind).size();
     }
 
-    public Optional<Kind> kindOf(String name) {
-        return lookup(name).map(Symbol::getKind);
-    }
-
-    public Optional<String> typeOf(String name) {
-        return lookup(name).map(Symbol::getType);
-    }
-
-    public Optional<Integer> indexOf(String name) {
-        return lookup(name).map(Symbol::getIndex);
-    }
-
     public Optional<Symbol> lookup(String name) {
         for (var table : symbols.values()) {
             if (table.containsKey(name)) return Optional.of(table.get(name));

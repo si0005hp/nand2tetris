@@ -35,9 +35,13 @@ public class Compiler extends JackBaseVisitor<Void> {
     @Override
     public Void visitClassVarDec(JackParser.ClassVarDecContext ctx) {
         ctx.varName().forEach(varName -> {
-            symbolTable.define(varName.getText(), ctx.type().getText(), ctx.STATIC() != null ?
-                    SymbolTable.Kind.STATIC : SymbolTable.Kind.FIELD);
-            numFields++;
+            if (ctx.STATIC() != null) {
+                symbolTable.define(varName.getText(), ctx.type().getText(),
+                        SymbolTable.Kind.STATIC);
+            } else {
+                symbolTable.define(varName.getText(), ctx.type().getText(), SymbolTable.Kind.FIELD);
+                numFields++;
+            }
         });
         return null;
     }
@@ -50,6 +54,10 @@ public class Compiler extends JackBaseVisitor<Void> {
 
         /* Initialize symbolTable and define function parameters */
         symbolTable.startSubroutine();
+        if (ctx.METHOD() != null) {
+            // If it's method, register instance itself as the first argument (TODO: 'self' ?)
+            symbolTable.define("self", getClassName(), SymbolTable.Kind.ARG);
+        }
         var params = ctx.parameterList();
         for (int i = 0; i < params.varName().size(); i++) {
             symbolTable.define(params.varName(i).getText(), params.type(i).getText(),
@@ -335,9 +343,10 @@ public class Compiler extends JackBaseVisitor<Void> {
                 return VMWriter.Segment.ARG;
             case FIELD:
                 return VMWriter.Segment.THIS;
+            case STATIC:
+                return VMWriter.Segment.STATIC;
             default:
-                // TODO: Other segments
-                throw new RuntimeException("Not implemented");
+                throw new RuntimeException("Unreachable");
         }
     }
 

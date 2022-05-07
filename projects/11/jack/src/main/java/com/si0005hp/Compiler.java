@@ -1,6 +1,10 @@
 package com.si0005hp;
 
+import com.google.common.io.Files;
 import lombok.RequiredArgsConstructor;
+import org.antlr.v4.runtime.Token;
+
+import java.io.File;
 
 /**
  * Compiler corresponds with a class.
@@ -10,7 +14,7 @@ public class Compiler extends JackBaseVisitor<Void> {
 
     private final SymbolTable symbolTable = new SymbolTable();
 
-    private final String className;
+    private final File file;
     private final VMWriter writer;
 
     private int whileLabelIndex = 0;
@@ -22,6 +26,11 @@ public class Compiler extends JackBaseVisitor<Void> {
     }
 
     private int numFields = 0;
+    private String currentSubroutine = null;
+
+    private String getClassName() {
+        return Files.getNameWithoutExtension(file.getPath());
+    }
 
     @Override
     public Void visitClassVarDec(JackParser.ClassVarDecContext ctx) {
@@ -35,8 +44,11 @@ public class Compiler extends JackBaseVisitor<Void> {
 
     @Override
     public Void visitSubroutineDec(JackParser.SubroutineDecContext ctx) {
+        this.currentSubroutine = ctx.subroutineName().getText();
+
         resetLabelIndex();
-        // Initialize symbolTable and define function parameters
+
+        /* Initialize symbolTable and define function parameters */
         symbolTable.startSubroutine();
         var params = ctx.parameterList();
         for (int i = 0; i < params.varName().size(); i++) {
@@ -44,14 +56,15 @@ public class Compiler extends JackBaseVisitor<Void> {
                     SymbolTable.Kind.ARG);
         }
 
-        var name = String.format("%s.%s", className, ctx.subroutineName().getText());
+        var name = String.format("%s.%s", getClassName(), ctx.subroutineName().getText());
         var nLocals = ctx.subroutineBody()
                 .varDec()
                 .stream()
                 .mapToInt(varDec -> varDec.varName().size())
                 .sum();
-
         writer.writeFunction(name, nLocals);
+
+        /* Subroutine kind specific codes */
         if (ctx.METHOD() != null) {
             // Set receiver (argument 0) to pointer 0 for methods
             writer.writePush(VMWriter.Segment.ARG, 0);
@@ -62,7 +75,12 @@ public class Compiler extends JackBaseVisitor<Void> {
             writer.writeCall("Memory.alloc", 1);
             writer.writePop(VMWriter.Segment.POINTER, 0);
         }
-        return visitChildren(ctx);
+
+        /* Compile subroutine body */
+        ctx.subroutineBody().accept(this);
+
+        this.currentSubroutine = null;
+        return null;
     }
 
     public Void visitVarDec(JackParser.VarDecContext ctx) {
@@ -73,8 +91,7 @@ public class Compiler extends JackBaseVisitor<Void> {
 
     @Override
     public Void visitLetStatement(JackParser.LetStatementContext ctx) {
-        // TODO: empty error handling
-        var lhs = symbolTable.lookupSymbol(ctx.lhs.getText()).get();
+        var lhs = lookupSymbol(ctx.lhs.getStart());
         if (ctx.subscriptArg == null) {
             ctx.rhs.accept(this);
             writer.writePop(resolveSymbolSegment(lhs), lhs.getIndex());
@@ -92,6 +109,16 @@ public class Compiler extends JackBaseVisitor<Void> {
             writer.writePop(VMWriter.Segment.THAT, 0);
         }
         return null;
+    }
+
+    private SymbolTable.Symbol lookupSymbol(Token token) {
+        var symbolName = token.getText();
+        return symbolTable.lookup(symbolName)
+                .orElseThrow(() -> new RuntimeException(String.format("In %s (line %s): In " +
+                                "subroutine %s: %s is not defined as a field, parameter or local " +
+                                "or static variable",
+                        file.getName(), token.getLine(), currentSubroutine, symbolName
+                )));
     }
 
     @Override
@@ -165,16 +192,14 @@ public class Compiler extends JackBaseVisitor<Void> {
 
     @Override
     public Void visitVarRef(JackParser.VarRefContext ctx) {
-        // TODO: empty error handling
-        var symbol = symbolTable.lookupSymbol(ctx.getText()).get();
+        var symbol = lookupSymbol(ctx.getStart());
         writer.writePush(resolveSymbolSegment(symbol), symbol.getIndex());
         return null;
     }
 
     @Override
     public Void visitSubscript(JackParser.SubscriptContext ctx) {
-        // TODO: empty error handling
-        var receiver = symbolTable.lookupSymbol(ctx.varName().getText()).get();
+        var receiver = lookupSymbol(ctx.varName().getStart());
 
         ctx.subscriptArg.accept(this);
         writer.writePush(resolveSymbolSegment(receiver), receiver.getIndex());
@@ -205,7 +230,7 @@ public class Compiler extends JackBaseVisitor<Void> {
         int nArgs = ctx.expressionList().expression().size();
 
         if (ctx.receiver != null) {
-            var opt = symbolTable.lookupSymbol(ctx.receiver.getText());
+            var opt = symbolTable.lookup(ctx.receiver.getText());
             if (opt.isPresent()) {
                 // Receiver is an instance
                 var symbol = opt.get();
@@ -219,7 +244,7 @@ public class Compiler extends JackBaseVisitor<Void> {
         } else {
             // If no receiver, then its one of other methods of self
             writer.writePush(VMWriter.Segment.POINTER, 0);
-            subroutineName = String.format("%s.%s", className, subroutineName);
+            subroutineName = String.format("%s.%s", getClassName(), subroutineName);
             nArgs += 1;
         }
 
@@ -315,4 +340,5 @@ public class Compiler extends JackBaseVisitor<Void> {
                 throw new RuntimeException("Not implemented");
         }
     }
+
 }

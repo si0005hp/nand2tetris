@@ -2,26 +2,36 @@
 
 set -e
 
-TEST_TARGET=${1:?'error: No test target'}
-
 PROJECT_ROOT="$(cd $(dirname $0); pwd)/../.."
-TEST_TARGET_PATH="${PROJECT_ROOT}/projects/11/${TEST_TARGET}"
-TEST_OUTPUT_DIR="${PROJECT_ROOT}/projects/11/jack/test_result/${TEST_TARGET}"
 
+run_test() {
+  local test_target=${1:?'error: No test target'}
+  local test_target_path="${PROJECT_ROOT}/projects/11/${test_target}"
+  local test_output_dir="${PROJECT_ROOT}/projects/11/jack/test_result/${test_target}"
 
-rm -rf "$TEST_OUTPUT_DIR" && mkdir -p "$TEST_OUTPUT_DIR/ans" "$TEST_OUTPUT_DIR/out"
-rm -f "$TEST_TARGET_PATH"/*.vm
+  rm -rf "$test_output_dir" && mkdir -p "$test_output_dir/ans" "$test_output_dir/out"
+  rm -f "$test_target_path"/*.vm
 
-# JackCompiler
-"$PROJECT_ROOT"/tools/JackCompiler.sh "$TEST_TARGET_PATH"
-cp -r "$TEST_TARGET_PATH"/*.vm "$TEST_OUTPUT_DIR/ans/"
+  # Run JackCompiler
+  "$PROJECT_ROOT"/tools/JackCompiler.sh "$test_target_path"
+  cp -r "$test_target_path"/*.vm "$test_output_dir/ans/"
 
-# Our Compiler
-(cd jack && mvn compile exec:java -Dexec.args="$TEST_TARGET_PATH")
-cp -r "$TEST_TARGET_PATH"/*.vm "$TEST_OUTPUT_DIR/out/"
+  # Run our Compiler
+  (cd jack && mvn exec:java -Dexec.args="$test_target_path")
+  cp -r "$test_target_path"/*.vm "$test_output_dir/out/"
 
+  # Compare results
+  diff "$test_output_dir/ans/" "$test_output_dir/out/"
+  echo "[${test_target}]: SUCCESS"
+}
 
-diff "$TEST_OUTPUT_DIR/ans/" "$TEST_OUTPUT_DIR/out/"
+# build
+(cd jack && mvn clean compile)
 
-echo "[${TEST_TARGET}]: SUCCESS"
+for target in "${@}"; do
+  run_test "$target"
+done
+
+echo "All tests passed"
+
 exit 0

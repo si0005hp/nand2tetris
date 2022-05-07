@@ -1,6 +1,5 @@
 package com.si0005hp;
 
-import com.google.common.io.Files;
 import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -36,7 +35,7 @@ public class Main {
             var program = parseFile(file);
 
             var writer = new VMWriter(bw);
-            var compiler = newCompiler(Files.getNameWithoutExtension(file.getPath()), writer);
+            var compiler = newCompiler(file, writer);
 
             compiler.visitProgram(program);
         } catch (Exception e) {
@@ -46,8 +45,8 @@ public class Main {
         }
     }
 
-    private static JackVisitor<Void> newCompiler(String className, VMWriter writer) {
-        return System.getenv("DEBUG") == null ? new Compiler(className, writer) :
+    private static JackVisitor<Void> newCompiler(File file, VMWriter writer) {
+        return System.getenv("DEBUG") == null ? new Compiler(file, writer) :
                 new ParserDebugger();
     }
 
